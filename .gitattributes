@@ -1,5 +1,0 @@
-*.pkl
-*.idx
-.venv/
-.idea/
-__pycache__/

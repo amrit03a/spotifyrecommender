@@ -4,3 +4,4 @@ numpy==1.26.4
 scikit-learn==1.2.2
 faiss-cpu==1.12.0
 spotipy
+huggingface_hub
