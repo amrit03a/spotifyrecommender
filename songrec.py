@@ -1,7 +1,9 @@
-from dotenv import load_dotenv
-load_dotenv()
+# Deployment-ready: removed dotenv import
+
+
+
 import os
-os.environ["HF_HOME"] = "/tmp/huggingface"  # cache Hugging Face
+os.environ["HF_HOME"] = "/tmp/huggingface"  # Hugging Face cache in Streamlit Cloud
 
 import pickle
 import faiss
@@ -17,25 +19,30 @@ from huggingface_hub import hf_hub_download
 # -----------------------------
 @st.cache_resource
 def load_data():
-    HF_TOKEN = os.getenv("HF_TOKEN")  # Hugging Face token
+    HF_TOKEN = os.getenv("HF_TOKEN")  # Hugging Face token from Streamlit secrets
 
-    songs_path = hf_hub_download(
-        repo_id="amrit0305/spotify",
-        filename="songs_data.pkl",
-        repo_type="dataset",
-        token=HF_TOKEN,
-    )
+    try:
+        songs_path = hf_hub_download(
+            repo_id="amrit0305/spotify",
+            filename="songs_data.pkl",
+            repo_type="dataset",
+            token=HF_TOKEN,
+        )
 
-    faiss_path = hf_hub_download(
-        repo_id="amrit0305/spotify",
-        filename="faiss_index.idx",
-        repo_type="dataset",
-        token=HF_TOKEN,
-    )
+        faiss_path = hf_hub_download(
+            repo_id="amrit0305/spotify",
+            filename="faiss_index.idx",
+            repo_type="dataset",
+            token=HF_TOKEN,
+        )
+    except Exception as e:
+        st.error(f"❌ Failed to download data from Hugging Face: {e}")
+        st.stop()
 
     with open(songs_path, "rb") as f:
         songs_data = pickle.load(f)
 
+    # Handle multiple possible formats
     if isinstance(songs_data, tuple):
         music, features = songs_data
         normed_dense = np.array(features, dtype="float32")
@@ -51,6 +58,7 @@ def load_data():
     faiss_index = faiss.read_index(faiss_path)
     return music, normed_dense, faiss_index
 
+
 # -----------------------------
 # Spotify client
 # -----------------------------
@@ -58,18 +66,22 @@ def load_data():
 def get_spotify_client():
     CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
     CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+
     if not CLIENT_ID or not CLIENT_SECRET:
-        st.error("Spotify credentials missing in environment variables!")
+        st.error("❌ Spotify credentials missing in environment variables!")
         return None
+
     return spotipy.Spotify(
         client_credentials_manager=SpotifyClientCredentials(
             client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET
+            client_secret=CLIENT_SECRET,
         )
     )
 
+
 music, normed_dense, index = load_data()
 sp = get_spotify_client()
+
 
 # -----------------------------
 # Album cover lookup
@@ -83,9 +95,10 @@ def get_song_album_cover_url(song_name, artist_name):
         results = sp.search(q=search_query, type="track", limit=1)
         if results and results["tracks"]["items"]:
             return results["tracks"]["items"][0]["album"]["images"][0]["url"]
-    except:
+    except Exception:
         pass
     return "https://i.postimg.cc/0QNxYz4V/social.png"
+
 
 # -----------------------------
 # Recommendation engine
@@ -93,6 +106,9 @@ def get_song_album_cover_url(song_name, artist_name):
 def recommend(song_name):
     recommended_list = []
     recommended_music_posters = []
+
+    if song_name not in music["song"].values:
+        return [], []
 
     idx = music[music["song"] == song_name].index[0]
     vector = normed_dense[idx].reshape(1, -1)
@@ -103,21 +119,29 @@ def recommend(song_name):
         tags = music.iloc[i].get("tags", "")
         artist = tags.split()[0] if isinstance(tags, str) and tags else ""
         recommended_list.append(rec_song_name)
-        recommended_music_posters.append(get_song_album_cover_url(rec_song_name, artist))
+        recommended_music_posters.append(
+            get_song_album_cover_url(rec_song_name, artist)
+        )
 
     return recommended_list, recommended_music_posters
+
 
 # -----------------------------
 # Streamlit UI
 # -----------------------------
 st.header("🎵 Spotify Music Recommender")
-music_list = music["song"].values
-selected_song = st.selectbox("Type or select a song", music_list)
 
-if st.button("Show Recommendation"):
-    recommended_music_names, recommended_music_posters = recommend(selected_song)
-    cols = st.columns(5)
-    for i in range(min(5, len(recommended_music_names))):
-        with cols[i]:
-            st.text(recommended_music_names[i])
-            st.image(recommended_music_posters[i])
+if music is not None:
+    music_list = music["song"].values
+    selected_song = st.selectbox("Type or select a song", music_list)
+
+    if st.button("Show Recommendation"):
+        recommended_music_names, recommended_music_posters = recommend(selected_song)
+        if not recommended_music_names:
+            st.warning("⚠️ No recommendations found. Try another song.")
+        else:
+            cols = st.columns(5)
+            for i in range(min(5, len(recommended_music_names))):
+                with cols[i]:
+                    st.text(recommended_music_names[i])
+                    st.image(recommended_music_posters[i])
