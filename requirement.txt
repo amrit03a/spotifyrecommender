@@ -1,7 +1,8 @@
-streamlit
-pandas==2.2.3
-numpy==1.26.4
-scikit-learn==1.2.2
-faiss-cpu==1.12.0
-spotipy
-huggingface_hub
+streamlit>=1.39.0
+pandas>=2.2.3
+numpy>=1.26.4
+scikit-learn>=1.2.2
+faiss-cpu>=1.12.0
+spotipy>=2.24.0
+huggingface_hub>=0.25.0
+python-dotenv>=1.0.1
