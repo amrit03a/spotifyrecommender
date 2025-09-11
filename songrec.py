@@ -110,7 +110,7 @@ def recommend(song_name):
 # -----------------------------
 # Streamlit UI
 # -----------------------------
-st.header("🎵 Spotify Music Recommender (FAISS Old Method)")
+st.header("🎵 Spotify Music Recommender")
 music_list = music["song"].values
 selected_song = st.selectbox("Type or select a song", music_list)
 
