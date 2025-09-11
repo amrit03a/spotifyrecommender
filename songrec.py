@@ -1,26 +1,19 @@
-# Deployment-ready: removed dotenv import
-# Redeploy fix for faiss-cpu
-
-
-
 import os
-os.environ["HF_HOME"] = "/tmp/huggingface"  # Hugging Face cache in Streamlit Cloud
-
 import pickle
-import faiss
 import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import numpy as np
 import pandas as pd
+import faiss  # Only reading pre-built index; no heavy installation needed
 from huggingface_hub import hf_hub_download
 
 # -----------------------------
-# Load dataset & FAISS
+# Load dataset & FAISS index
 # -----------------------------
 @st.cache_resource
 def load_data():
-    HF_TOKEN = os.getenv("HF_TOKEN")  # Hugging Face token from Streamlit secrets
+    HF_TOKEN = os.getenv("HF_TOKEN")  # Streamlit Secrets
 
     try:
         songs_path = hf_hub_download(
@@ -29,7 +22,6 @@ def load_data():
             repo_type="dataset",
             token=HF_TOKEN,
         )
-
         faiss_path = hf_hub_download(
             repo_id="amrit0305/spotify",
             filename="faiss_index.idx",
@@ -40,10 +32,11 @@ def load_data():
         st.error(f"❌ Failed to download data from Hugging Face: {e}")
         st.stop()
 
+    # Load songs metadata
     with open(songs_path, "rb") as f:
         songs_data = pickle.load(f)
 
-    # Handle multiple possible formats
+    # Convert to numpy array
     if isinstance(songs_data, tuple):
         music, features = songs_data
         normed_dense = np.array(features, dtype="float32")
@@ -56,6 +49,7 @@ def load_data():
     else:
         raise ValueError("Unsupported songs_data format")
 
+    # Load pre-built FAISS index
     faiss_index = faiss.read_index(faiss_path)
     return music, normed_dense, faiss_index
 
@@ -69,7 +63,7 @@ def get_spotify_client():
     CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 
     if not CLIENT_ID or not CLIENT_SECRET:
-        st.error("❌ Spotify credentials missing in environment variables!")
+        st.error("❌ Spotify credentials missing in Streamlit Secrets!")
         return None
 
     return spotipy.Spotify(
