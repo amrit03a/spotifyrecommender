@@ -1,4 +1,5 @@
 # Deployment-ready: removed dotenv import
+# Redeploy fix for faiss-cpu
 
 
 
